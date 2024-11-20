@@ -36,18 +36,21 @@ class Book(AbstractBook):
         self.author = author
         self.publisher = publisher
         self.is_borrowed = False
+        self.borrower_id = None
 
 
     def borrow(self, member_id):
         if self.is_borrowed:
             raise BookAlreadyBorrowedError(f"Book {self.title} is already borrowed")
         self.is_borrowed = True
+        self.borrower_id = member_id
         print(f"book {self.title} borrowed by member {member_id}")
 
     def return_book(self, member_id):
         if not self.is_borrowed:
             raise Exception(f"Book {self.title} is not Borrowed")
         self.is_borrowed = False
+        self.borrower_id = None
         print(f"Book {self.title} returned by Member {member_id}")
 
 class Member:
@@ -125,30 +128,56 @@ class LibraryManagementSystem:
     
     @log_operation
     def borrow_book(self, member_id, book_id):
-        book = self.find_book_by_id(book_id)
-        member = self.find_member_by_id(member_id)
-        book.borrow(member_id)
-        transaction = Transaction(
-            transaction_id=len(self.transactions) +1,
-            member_id=member_id,
-            book_id=book_id,
-            borrow_date=datetime.now()
-        )
+        try:
+            book = self.find_book_by_id(book_id)
+            member = self.find_member_by_id(member_id)
+            book.borrow(member_id)
+            transaction = Transaction(
+                transaction_id=len(self.transactions) +1,
+                member_id=member_id,
+                book_id=book_id,
+                borrow_date=datetime.now()
+            )
 
-        self.transactions.append(transaction)
+            self.transactions.append(transaction)
 
-        print(f"Transaction Successfull {transaction}")
+            print(f"Transaction Successfull {transaction}")
+        except BookNotFoundError as e:
+            print(f"Error: {e}")
+        except BookAlreadyBorrowedError as e:
+            print(f"Error: {e}")
+        except MemberNotFoundError as e:
+            print(f"Error: {e}")
+        except LibraryError as e:
+            print(f"Library-related error: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+
 
     @log_operation
     def return_book(self, member_id, book_id):
-        book = self.find_book_by_id(book_id)
-        book.return_book(member_id)
-        for transaction in self.transactions:
-            if transaction.book_id == book_id and transaction.return_date is None:
-                transaction.return_date = datetime.now()
-                print(f"Return recorded for transaction ID: {transaction.transaction_id}")
-                break
+        try:
+            book = self.find_book_by_id(book_id)
+            member = self.find_member_by_id(member_id)
+            
+            if book.borrower_id is None or book.borrower_id is not member.member_id:
+                raise Exception(f"This member is not Borrower of this Book ID {book.book_id} and borrower id {book.borrower_id}")
+            book.return_book(member_id)
 
+            for transaction in self.transactions:
+                if transaction.book_id == book_id and transaction.return_date is None:
+                    transaction.return_date = datetime.now()
+                    print(f"Return recorded for transaction ID: {transaction.transaction_id}")
+                    break
+        except BookNotFoundError as e:
+            print(f"Error: {e}")
+        except MemberNotFoundError as e:
+            print(f"Error: {e}")
+        except LibraryError as e:
+            print(f"Library-related error: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+        
     
     def find_book_by_id(self, book_id):
         for book in self.books:
@@ -184,31 +213,8 @@ if __name__ == '__main__':
 
     #Borrow and return Book
     library.borrow_book(101, 1) #Alice borrow digital book
-    library.return_book(101, 1) # Alice return digital book
-
     library.borrow_book(102, 2) # Bob Borrow physical book
-    library.borrow_book(103, 1) # ember with Id 103 not found.
+    library.borrow_book(101, 3) # Error: Book with Id 3 not found
+
+    #library.borrow_book(101, 3) # ember with Id 103 not found.
     
-
-
-
-    
-
-    
-
-
-
-
-
-     
-
-
-
-
-
-
-
-
-        
-
-
